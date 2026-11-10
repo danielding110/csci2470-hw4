@@ -77,6 +77,22 @@ class AdamW(Optimizer):
                 # Please note that the learning rate should be incorporated into this update.
                 # Decoupled from the gradient update, which is what distinguishes AdamW
                 # from Adam with L2 regularization (https://arxiv.org/abs/1711.05101).
-                raise NotImplementedError
+                eps = group["eps"]
+                weight_decay = group["weight_decay"]
+                t = state["step"]
+
+                exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
+                exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+
+                if group["correct_bias"]:
+                    group_size = alpha * math.sqrt(1 - beta2 ** t) / (1 - beta1 ** t)
+                else:
+                    group_size = alpha
+
+                denom = exp_avg_sq.sqrt().add_(eps)
+                p.data.addcdiv_(exp_avg, denom, value=-group_size)
+
+                if weight_decay > 0.0:
+                    p.data.add_(p.data, alpha=-weight_decay * alpha)
 
         return loss
